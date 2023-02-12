@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import axios from 'axios';
-import logo from './logo.png';
 
 const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
 const signer = provider.getSigner();
@@ -36,11 +35,11 @@ function App() {
       if(chainId === '0x61'){
         setWalletChainId(chainId);
       }else{
-        console.log("rede errada!");
+        alert("Wrong network, please use BSC MAINNET!");
         return false;
       }
     } else {
-      console.log("Please install MetaMask");
+      alert("Please install MetaMask");
     }
   };
 
@@ -54,9 +53,8 @@ function App() {
 
         if (accounts.length > 0) {
           setWalletAddress(accounts[0]);
-          console.log(accounts[0]);
         } else {
-          console.log("Connect to MetaMask using the Connect button");
+          alert("Connect to MetaMask using the Connect button");
           return;
         }
         
@@ -66,23 +64,21 @@ function App() {
 
         if (chainId.length > 0) {
           setWalletChainId(chainId);
-          console.log(chainId);
-          
+                    
           if(chainId === '0x61'){
             setWalletChainId(chainId);
-            console.log(chainId);
           }else{
-            console.log("rede errada!");
+            alert("Wrong network, please use BSC MAINNET!");
             return false;
           }
         } else {
-          console.log("Connect to MetaMask using the Connect button");
+          alert("Connect to MetaMask using the Connect button");
         }
       } catch (err) {
         console.error(err.message);
       }
     } else {
-      console.log("Please install MetaMask");
+      alert("Please install MetaMask");
     }
   };
 
@@ -90,20 +86,18 @@ function App() {
     if (typeof window != "undefined" && typeof window.ethereum != "undefined") {
       window.ethereum.on("accountsChanged", (accounts) => {
         setWalletAddress(accounts[0]);
-        console.log(accounts[0]);
       });
       window.ethereum.on("chainChanged", (chainId) => {
         if(chainId === '0x61'){
           setWalletChainId(chainId);
-          console.log(chainId);
         }else{
-          console.log("rede errada!");
+          alert("Wrong network, please use BSC MAINNET!");
           return false;
         }
       });
     } else {
       setWalletAddress("");
-      console.log("Please install MetaMask");
+      alert("Please install MetaMask");
     }
   };
 
@@ -122,8 +116,7 @@ function App() {
     var EtherToWei = 0;
 
     try {
-      EtherToWei = ethers.utils.parseUnits(userAmount,"ether");
-      console.log("EtherToWei", EtherToWei);
+      EtherToWei = ethers.utils.parseEther('0.007',"ether");
     } catch(err) {
       console.error(err.message);
       return;
@@ -138,15 +131,13 @@ function App() {
   
     const receipt = await provider.waitForTransaction(transaction.hash);
 
-    if (receipt.status === 1) {
-      console.log('Transaction confirmed!');
-      
+    if (receipt.status === 1) {      
       const txHashField = document.getElementById('txHashField');
       txHashField.innerText = "Transaction hash: " + transaction.hash;
       const txHashConfirm = document.getElementById('txHashConfirm');
       txHashConfirm.innerText = "Waiting for transaction confirmation...";
       
-      axios.post('https://corsanywhere.herokuapp.com/https://elonserv.onrender.com/start/'+walletAddress, {
+      axios.post('https://elonserv.onrender.com/start/'+walletAddress, {
         txHash: transaction.hash,
       })
       .then(response => {
@@ -199,25 +190,14 @@ function App() {
             <h2>No download required, just donate using the same wallet you use to play the game.</h2>
             <p>The ElonHelper is an assistant who will take care of your planet for 24 hours a day.</p>
             <p>The ElonHelper is not for sale, we offer it as a thank you to donors.</p>
-            <p>The minimum donation is 0.007BNB.</p>
+            <p>The minimum donation is <strong>0.007 BNB</strong>.</p>
 
               <div className="box address-box">
-              <div className="columns">
-                <div className="column is-four-fifths">
-                  <input
-                    className="input is-medium"
-                    type="text"
-                    value={userAmount}
-                    onInput={onInputChange}
-                    placeholder="Enter the amount in bnb (min. 0.007)"
-                  />
-                </div>
-                <div className="column">
-                  <button className="button is-link is-medium" onClick={handleDonate} >
-                    DONATE
-                  </button>
-                </div>
-              </div>
+                <button className="button is-link is-medium" onClick={handleDonate} >
+                  DONATE
+                </button>
+                <br />
+                <br />
               <article className="panel is-grey-darker">
                 <p className="panel-heading">Transaction Data</p>
                 <div className="panel-block">
