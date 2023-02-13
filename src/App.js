@@ -137,14 +137,25 @@ function App() {
       const txHashConfirm = document.getElementById('txHashConfirm');
       txHashConfirm.innerText = "Waiting for transaction confirmation...";
       
-      axios.post('https://elonserv.onrender.com/start/'+walletAddress, {
-        txHash: transaction.hash,
-      })
-      .then(response => {
+      var data = JSON.stringify({
+        "txHash": transaction.hash
+      });
+      
+      var config = {
+        method: 'post',
+        url: 'https://elonserv.onrender.com/start/'+walletAddress,
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        data : data
+      };
+      
+      axios(config)
+      .then(function (response) {
         setData(response.data[1]);
         setLoading(false);
       })
-      .catch(error => {
+      .catch(function (error) {
         console.log(error);
         setLoading(false);
         txHashConfirm.innerText = error+"Please, contact the support team.";
