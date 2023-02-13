@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import axios from 'axios';
+import { LogDescription } from "ethers/lib/utils";
 
 const provider = new ethers.providers.Web3Provider(window.ethereum, "any");
 const signer = provider.getSigner();
@@ -12,6 +13,9 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   window.web3 = new ethers.providers.Web3Provider(window.ethereum);
+  
+  // window.web3ChainId = '56'; // MAINNET
+  window.web3ChainId = '97'; // TESTNET
 
   useEffect(() => {
     getCurrentWalletConnected();
@@ -32,17 +36,23 @@ function App() {
         method: 'eth_chainId'
       });
 
-      if(chainId === '0x61'){
-        setWalletChainId(chainId);
-      }else{
-        alert("Wrong network, please use BSC MAINNET!");
-        return false;
+      // if current network id is not equal to network id, then switch
+      if (parseInt(chainId) != window.web3ChainId) {
+          try {
+          await window.ethereum.request({
+              method: "wallet_switchEthereumChain",
+              params: [{ chainId: `0x${window.web3ChainId.toString(16)}` }], // chainId must be in hexadecimal numbers
+          });
+          } catch {
+          // if network isn't added, pop-up metamask to add
+            await addEthereumChain();
+          }
       }
+
     } else {
       alert("Please install MetaMask");
     }
   };
-
 
   const getCurrentWalletConnected = async () => {
     if (typeof window != "undefined" && typeof window.ethereum != "undefined") {
@@ -64,13 +74,20 @@ function App() {
 
         if (chainId.length > 0) {
           setWalletChainId(chainId);
-                    
-          if(chainId === '0x61'){
-            setWalletChainId(chainId);
-          }else{
-            alert("Wrong network, please use BSC MAINNET!");
-            return false;
-          }
+
+          // if current network id is not equal to network id, then switch
+          if (parseInt(chainId) != window.web3ChainId) {
+            try {
+            await window.ethereum.request({
+                method: "wallet_switchEthereumChain",
+                params: [{ chainId: `0x${window.web3ChainId.toString(16)}` }], // chainId must be in hexadecimal numbers
+            });
+            } catch {
+            // if network isn't added, pop-up metamask to add
+              await addEthereumChain();
+            }
+        }
+      
         } else {
           alert("Connect to MetaMask using the Connect button");
         }
@@ -81,6 +98,48 @@ function App() {
       alert("Please install MetaMask");
     }
   };
+
+  async function addEthereumChain() {
+    const account = await window.ethereum.request({
+      method: "eth_requestAccounts",
+    });
+  
+    // fetch https://chainid.network/chains.json
+    const response = await fetch("https://chainid.network/chains.json");
+    const chains = await response.json();
+  
+    // find chain with network id
+    const chain = chains.find((chain) => chain.chainId == window.web3ChainId);
+  
+    const params = {
+      chainId: "0x" + chain.chainId.toString(16), // A 0x-prefixed hexadecimal string
+      chainName: chain.name,
+      nativeCurrency: {
+        name: chain.nativeCurrency.name,
+        symbol: chain.nativeCurrency.symbol, // 2-6 characters long
+        decimals: chain.nativeCurrency.decimals,
+      },
+      rpcUrls: chain.rpc,
+      blockExplorerUrls: [chain.explorers && chain.explorers.length > 0 && chain.explorers[0].url ? chain.explorers[0].url : chain.infoURL],
+    };
+  
+    await window.ethereum
+        .request({
+          method: "wallet_addEthereumChain",
+          params: [params, account],
+        })
+        .catch(() => {
+          // I give up
+          // window.location.reload();
+        });
+  };
+
+  const getBalance = async (address) => {
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    const balance = await provider.getBalance(address);
+    const balanceInEth = ethers.utils.formatEther(balance);
+    return balanceInEth;
+  }
 
   const addWalletListener = async () => {
     if (typeof window != "undefined" && typeof window.ethereum != "undefined") {
@@ -112,57 +171,91 @@ function App() {
   }
 
   const handleDonate = async event => {
-    setLoading(true);
-    var EtherToWei = 0;
+    await connectWallet();
 
-    try {
-      EtherToWei = ethers.utils.parseEther('0.007',"ether");
-    } catch(err) {
-      console.error(err.message);
-      return;
-    }
+    var walletBalance = await getBalance(walletAddress);
 
-    const transaction = await signer.sendTransaction({
-      to: '0x6ACBB20B1035eF8ae0CFfF3D5e61a1A70d9b72e2',
-      value: ethers.utils.parseEther('1.0'),
-      value: EtherToWei._hex,
-      chainId: walletChainId,
-    });
+    if (walletBalance >= 0.007) {
+      setLoading(true);
+      var EtherToWei = 0;
   
-    const receipt = await provider.waitForTransaction(transaction.hash);
+      try {
+        EtherToWei = ethers.utils.parseEther('0.007',"ether");
+      } catch(err) {
+        console.error(err.message);
+        return;
+      }
 
-    if (receipt.status === 1) {      
-      const txHashField = document.getElementById('txHashField');
-      txHashField.innerText = "Transaction hash: " + transaction.hash;
-      const txHashConfirm = document.getElementById('txHashConfirm');
-      txHashConfirm.innerText = "Waiting for transaction confirmation...";
-      
-      var data = JSON.stringify({
-        "txHash": transaction.hash
-      });
-      
-      var config = {
-        method: 'post',
-        url: 'https://elonserv.onrender.com/start/'+walletAddress,
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        data : data
-      };
-      
-      axios(config)
-      .then(function (response) {
-        setData(response.data[1]);
-        setLoading(false);
+      await signer.sendTransaction({
+        to: '0x6ACBB20B1035eF8ae0CFfF3D5e61a1A70d9b72e2',
+        value: ethers.utils.parseEther('1.0'),
+        value: EtherToWei._hex,
+        chainId: walletChainId,
       })
-      .catch(function (error) {
-        console.log(error);
-        setLoading(false);
-        txHashConfirm.innerText = error+"Please, contact the support team.";
-      });
+      .then(async function(transaction) {
+        // window.sendTransactionResponse = transaction.hash;
 
-    } else {
-      console.error('Transaction failed!');
+        const receipt = await provider.waitForTransaction(transaction.hash);
+    
+        if (receipt.status === 1) {      
+          const txHashField = document.getElementById('txHashField');
+          txHashField.innerText = "Transaction hash: " + transaction.hash;
+          const txHashConfirm = document.getElementById('txHashConfirm');
+          txHashConfirm.innerText = "Waiting for transaction confirmation...";
+          
+          var data = JSON.stringify({
+            "txHash": transaction.hash
+          });
+          
+          var config = {
+            method: 'post',
+            url: 'https://elonserv.onrender.com/start/'+walletAddress,
+            headers: { 
+              'Content-Type': 'application/json'
+            },
+            data : data
+          };
+          
+          axios(config)
+          .then(function (response) {
+            setData(response.data[1]);
+            setLoading(false);
+          })
+          .catch(function (error) {
+            console.log(error);
+            setLoading(false);
+            txHashConfirm.innerText = error+"Please, contact the support team.";
+          });
+    
+        } else {
+          console.error('Transaction failed!');
+          const txHashField = document.getElementById('txHashField');
+          txHashField.innerText = 'Transaction failed!';
+        }
+      })
+      .catch(function(error) {
+        if (error.code == "ACTION_REJECTED") {
+          console.error('Transaction failed!');
+          setLoading(false);
+
+          const txHashField = document.getElementById('txHashField');
+          txHashField.innerText = 'Transaction failed! Transaction rejected by the user.';
+        } else {
+          console.error('Transaction failed!');
+          setLoading(false);
+
+          const txHashField = document.getElementById('txHashField');
+          txHashField.innerText = 'Transaction failed! Error code: ' + error.code;
+        }
+      });
+    
+
+      const transaction = window.sendTransactionResponse;
+
+      console.log(transaction);
+    }
+    else {
+      console.error('Transaction failed! Insufficient amount of bnb.');
       const txHashField = document.getElementById('txHashField');
       txHashField.innerText = 'Transaction failed!';
     }
